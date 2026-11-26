@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>EV Battery Health Prediction</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v={{ v }}">
+</head>
+<body>
+  <main class="page">
+    <h1 class="title">EV Battery Health Prediction</h1>
+
+    <div class="top">
+      <!-- ============ Inputs ============ -->
+      <section class="card features" aria-label="Battery features">
+        <h2 class="card-label">Features</h2>
+
+        <div class="field">
+          <span class="name" id="model-label">Select ML Model</span>
+          <div class="models" role="group" aria-labelledby="model-label">
+            {% for m, label in (("xgboost", "XGBoost"), ("rf", "Random Forest")) %}
+            <button type="button" class="model-btn" data-model="{{ m }}"
+                    aria-pressed="{{ 'true' if m == r.model_used else 'false' }}"
+                    {% if m not in models %}disabled title="Not installed"{% endif %}>{{ label }}</button>
+            {% endfor %}
+          </div>
+        </div>
+
+        {% for f in fields %}
+        <div class="field">
+          <div class="row">
+            <label class="name" for="in-{{ f.key }}">{{ f.label }}</label>
+            <output class="val" id="out-{{ f.key }}" for="in-{{ f.key }}">{{ '%.*f'|format(f.decimals, f.default) }}{{ f.unit }}</output>
+          </div>
+          <input type="range" id="in-{{ f.key }}" data-key="{{ f.key }}" data-decimals="{{ f.decimals }}"
+                 data-unit="{{ f.unit }}" min="{{ f.min }}" max="{{ f.max }}" step="{{ f.step }}" value="{{ f.default }}">
+          {% if f.hint %}<p class="hint">{{ f.hint }}</p>{% endif %}
+        </div>
+        {% endfor %}
+
+        <button type="button" class="predict" id="predict">Predict Battery Health</button>
+      </section>
+
+      <!-- ============ Results ============ -->
+      <section class="card results" aria-label="Prediction" aria-live="polite" data-tone="{{ r.tone }}" id="results">
+        <div class="kpis">
+          <div class="kpi"><span class="kpi-label">SOH</span><span class="kpi-num" id="soh">{{ '%.2f'|format(r.soh) }}%</span></div>
+          <div class="kpi"><span class="kpi-label">RUL</span><span class="kpi-num" id="rul">~{{ r.remaining_cycles }}</span><span class="kpi-sub">cycles</span></div>
+        </div>
+
+        <div class="battery-wrap">
+          <div class="battery">
+            <div class="cap"></div>
+            <div class="shell">
+              <div class="cell">
+                <div class="fill" id="fill" style="height: {{ r.soh }}%"></div>
+                <svg class="bolt" viewBox="0 0 40 64" aria-hidden="true">
+                  <defs>
+                    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0" stop-color="#ffb02e"/><stop offset="1" stop-color="#f0502a"/>
+                    </linearGradient>
+                  </defs>
+                  <path d="M24 2 4 36h14l-4 26 22-36H22z" fill="url(#bg)"/>
+                </svg>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="badge" id="badge"><span id="badge-icon">✅</span> <span id="status">{{ r.status }}</span></div>
+        <p class="message" id="message">{{ r.message }}</p>
+        <div class="value">Estimated Pack Value: <strong id="value">${{ '{:,}'.format(r.pack_value) }}</strong>
+          <small>(40 kWh equiv. · $120/kWh benchmark)</small></div>
+      </section>
+    </div>
+
+    <!-- ============ Chart ============ -->
+    <section class="card chart-card" aria-label="Degradation curve">
+      <h2 class="card-label">📈 Battery Degradation Curve</h2>
+      <div class="legend">
+        <span><i class="sw sw-soh"></i>Predicted SoH (%)</span>
+        <span><i class="sw sw-eol"></i>80% EOL Threshold</span>
+      </div>
+      <div class="chart" id="chart" role="img" aria-label="Predicted state of health versus charge cycles"></div>
+      <p class="caption">Projected SoH (%) across 600 charge cycles under current operating conditions</p>
+    </section>
+  </main>
+
+  <script>window.__INITIAL__ = {{ r|tojson }};</script>
+  <script src="{{ url_for('static', filename='app.js') }}?v={{ v }}" defer></script>
+</body>
+</html>
